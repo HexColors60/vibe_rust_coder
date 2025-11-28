@@ -29,7 +29,8 @@ Vibe Rust Coder is a GUI application that bridges the gap between AI coding assi
 - Scrollable chat history
 - Timestamps on all messages
 - Easy copy-paste workflow
-- **NEW**: Selectable message content
+- **NEW v0.3.1**: Fully editable messages - edit any text inline!
+- **NEW v0.3.1**: Full text selection - select and Ctrl+C to copy
 
 ### 🎮 **Quick Command Buttons** (NEW!)
 - **📋 List Files** - Instant file listing

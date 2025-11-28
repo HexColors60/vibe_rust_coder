@@ -269,13 +269,13 @@ impl eframe::App for VibeRustCoderApp {
                     
                     ui.separator();
                     
-                    // Original text
-                    ui.label(RichText::new("Original Text:").strong());
+                    // Original text (now editable and selectable)
+                    ui.label(RichText::new("Original Text (editable, select and Ctrl+C to copy):").strong());
                     ScrollArea::vertical()
                         .max_height(150.0)
                         .show(ui, |ui| {
                             ui.add(
-                                egui::TextEdit::multiline(&mut self.process_text.as_str())
+                                egui::TextEdit::multiline(&mut self.process_text)
                                     .desired_width(f32::INFINITY)
                                     .code_editor()
                             );
@@ -283,9 +283,9 @@ impl eframe::App for VibeRustCoderApp {
                     
                     ui.separator();
                     
-                    // Analysis results
+                    // Analysis results (now editable and selectable)
                     if !self.process_analysis.is_empty() {
-                        ui.label(RichText::new("Analysis Results:").strong());
+                        ui.label(RichText::new("Analysis Results (editable, select and Ctrl+C to copy):").strong());
                         ui.horizontal(|ui| {
                             if ui.button("📋 Copy Analysis").clicked() {
                                 ui.output_mut(|o| o.copied_text = self.process_analysis.clone());
@@ -297,7 +297,7 @@ impl eframe::App for VibeRustCoderApp {
                             .max_height(200.0)
                             .show(ui, |ui| {
                                 ui.add(
-                                    egui::TextEdit::multiline(&mut self.process_analysis.as_str())
+                                    egui::TextEdit::multiline(&mut self.process_analysis)
                                         .desired_width(f32::INFINITY)
                                         .code_editor()
                                 );
@@ -413,7 +413,7 @@ impl eframe::App for VibeRustCoderApp {
             }
 
             // Chat history display
-            ui.label("Chat History:");
+            ui.label("Chat History (editable - select text and Ctrl+C to copy):");
             let scroll_area = ScrollArea::vertical()
                 .auto_shrink([false; 2])
                 .stick_to_bottom(self.auto_scroll)
@@ -424,7 +424,7 @@ impl eframe::App for VibeRustCoderApp {
                 let mut pending_process: Option<String> = None;
                 let mut pending_analyze: Option<String> = None;
                 
-                for (_msg_idx, msg) in self.chat_history.iter().enumerate() {
+                for (_msg_idx, msg) in self.chat_history.iter_mut().enumerate() {
                     let (color, prefix) = match msg.role {
                         MessageRole::User => (Color32::LIGHT_BLUE, "👤 User"),
                         MessageRole::Assistant => (Color32::LIGHT_GREEN, "🤖 Assistant"),
@@ -439,11 +439,10 @@ impl eframe::App for VibeRustCoderApp {
 
                     ui.add_space(4.0);
                     
-                    // Make message content selectable with context menu
-                    let mut content_str = msg.content.clone();
-                    let text_edit = egui::TextEdit::multiline(&mut content_str)
+                    // Make message content editable and selectable
+                    let text_edit = egui::TextEdit::multiline(&mut msg.content)
                         .desired_width(f32::INFINITY)
-                        .interactive(false);
+                        .code_editor();
                     
                     let response = ui.add(text_edit);
                     
@@ -518,7 +517,7 @@ impl eframe::App for VibeRustCoderApp {
             // Help text
             ui.add_space(5.0);
             ui.label(
-                RichText::new("💡 Tip: Right-click messages for options. Use quick buttons or type commands. Search results are clickable!")
+                RichText::new("💡 Tip: Chat is editable! Select text with mouse and Ctrl+C to copy. Right-click for more options.")
                     .small()
                     .color(Color32::GRAY),
             );

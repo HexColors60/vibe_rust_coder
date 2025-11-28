@@ -46,11 +46,23 @@ Vibe Rust Coder is a GUI application that bridges the gap between AI coding assi
 - **Collapsible panel** - Clean interface
 - **Line numbers** - Navigate to exact locations
 
-### 📋 **Clipboard Integration** (NEW!)
+### 📋 **Clipboard Integration** (v0.2.0)
 - One-click copy for search results
 - Copy file paths instantly
 - System clipboard support
 - Confirmation messages
+
+### 🖱️ **Right-Click Context Menu** (NEW v0.3.0!)
+- **📋 Copy to Clipboard** - Copy any message
+- **🔧 Open in Process Window** - Advanced text processing
+- **📊 Quick Analyze** - Instant statistics
+
+### 🔧 **Process Window** (NEW v0.3.0!)
+- **📊 Analyze** - Detailed text analysis (chars, lines, words, code detection)
+- **📝 Summary** - Smart text summarization
+- **🔧 Create Patch** - Generate patch format
+- **📋 Copy All** - Copy entire text
+- **📋 Copy Analysis** - Copy analysis results
 
 ### 🛠️ **Integrated Build Tools**
 - `build` - Run cargo build

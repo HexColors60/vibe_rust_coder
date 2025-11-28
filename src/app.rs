@@ -34,6 +34,10 @@ pub struct VibeRustCoderApp {
     auto_scroll: bool,
     search_results: Vec<SearchResult>,
     last_command: String,
+    show_process_window: bool,
+    process_text: String,
+    process_analysis: String,
+    selected_text: String,
 }
 
 impl Default for VibeRustCoderApp {
@@ -47,6 +51,10 @@ impl Default for VibeRustCoderApp {
             auto_scroll: true,
             search_results: Vec::new(),
             last_command: String::new(),
+            show_process_window: false,
+            process_text: String::new(),
+            process_analysis: String::new(),
+            selected_text: String::new(),
         }
     }
 }
@@ -139,10 +147,165 @@ impl VibeRustCoderApp {
             }
         }
     }
+
+    fn analyze_text(&mut self) {
+        let text = self.process_text.clone();
+        let mut analysis = String::new();
+        
+        // Basic analysis
+        analysis.push_str(&format!("📊 Text Analysis\n\n"));
+        analysis.push_str(&format!("Length: {} characters\n", text.len()));
+        analysis.push_str(&format!("Lines: {}\n", text.lines().count()));
+        analysis.push_str(&format!("Words: {}\n\n", text.split_whitespace().count()));
+        
+        // Code detection
+        if text.contains("fn ") || text.contains("struct ") || text.contains("impl ") {
+            analysis.push_str("🦀 Detected: Rust code\n\n");
+            
+            // Count functions
+            let fn_count = text.matches("fn ").count();
+            let struct_count = text.matches("struct ").count();
+            let impl_count = text.matches("impl ").count();
+            
+            if fn_count > 0 {
+                analysis.push_str(&format!("Functions: {}\n", fn_count));
+            }
+            if struct_count > 0 {
+                analysis.push_str(&format!("Structs: {}\n", struct_count));
+            }
+            if impl_count > 0 {
+                analysis.push_str(&format!("Implementations: {}\n", impl_count));
+            }
+            analysis.push_str("\n");
+        }
+        
+        // Extract identifiers
+        let words: Vec<&str> = text.split_whitespace().collect();
+        let unique_words: std::collections::HashSet<_> = words.iter().collect();
+        analysis.push_str(&format!("Unique words: {}\n", unique_words.len()));
+        
+        self.process_analysis = analysis;
+    }
+
+    fn summarize_text(&mut self) {
+        let text = self.process_text.clone();
+        let lines: Vec<&str> = text.lines().collect();
+        
+        let mut summary = String::new();
+        summary.push_str("📝 Summary\n\n");
+        
+        if lines.len() <= 5 {
+            summary.push_str(&text);
+        } else {
+            // Show first 3 and last 2 lines
+            for line in lines.iter().take(3) {
+                summary.push_str(line);
+                summary.push('\n');
+            }
+            summary.push_str(&format!("\n... ({} lines omitted) ...\n\n", lines.len() - 5));
+            for line in lines.iter().skip(lines.len() - 2) {
+                summary.push_str(line);
+                summary.push('\n');
+            }
+        }
+        
+        self.process_analysis = summary;
+    }
+
+    fn create_patch(&mut self) {
+        let text = self.process_text.clone();
+        let mut patch = String::new();
+        
+        patch.push_str("--- Original\n");
+        patch.push_str("+++ Modified\n");
+        patch.push_str("@@ -1,1 +1,1 @@\n");
+        
+        for line in text.lines() {
+            if !line.trim().is_empty() {
+                patch.push_str(&format!(" {}\n", line));
+            }
+        }
+        
+        self.process_analysis = patch;
+    }
+
+    fn open_process_window(&mut self, text: String) {
+        self.process_text = text;
+        self.process_analysis.clear();
+        self.show_process_window = true;
+    }
 }
 
 impl eframe::App for VibeRustCoderApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        // Process Window (modal)
+        if self.show_process_window {
+            egui::Window::new("📋 Process Text")
+                .default_width(600.0)
+                .default_height(500.0)
+                .show(ctx, |ui| {
+                    ui.heading("Text Processing");
+                    ui.separator();
+                    
+                    // Action buttons
+                    ui.horizontal(|ui| {
+                        if ui.button("📊 Analyze").clicked() {
+                            self.analyze_text();
+                        }
+                        if ui.button("📝 Summary").clicked() {
+                            self.summarize_text();
+                        }
+                        if ui.button("🔧 Create Patch").clicked() {
+                            self.create_patch();
+                        }
+                        if ui.button("📋 Copy All").clicked() {
+                            ui.output_mut(|o| o.copied_text = self.process_text.clone());
+                            self.add_message(MessageRole::System, "Text copied to clipboard".to_string());
+                        }
+                        if ui.button("❌ Close").clicked() {
+                            self.show_process_window = false;
+                        }
+                    });
+                    
+                    ui.separator();
+                    
+                    // Original text
+                    ui.label(RichText::new("Original Text:").strong());
+                    ScrollArea::vertical()
+                        .max_height(150.0)
+                        .show(ui, |ui| {
+                            ui.add(
+                                egui::TextEdit::multiline(&mut self.process_text.as_str())
+                                    .desired_width(f32::INFINITY)
+                                    .code_editor()
+                            );
+                        });
+                    
+                    ui.separator();
+                    
+                    // Analysis results
+                    if !self.process_analysis.is_empty() {
+                        ui.label(RichText::new("Analysis Results:").strong());
+                        ui.horizontal(|ui| {
+                            if ui.button("📋 Copy Analysis").clicked() {
+                                ui.output_mut(|o| o.copied_text = self.process_analysis.clone());
+                                self.add_message(MessageRole::System, "Analysis copied to clipboard".to_string());
+                            }
+                        });
+                        
+                        ScrollArea::vertical()
+                            .max_height(200.0)
+                            .show(ui, |ui| {
+                                ui.add(
+                                    egui::TextEdit::multiline(&mut self.process_analysis.as_str())
+                                        .desired_width(f32::INFINITY)
+                                        .code_editor()
+                                );
+                            });
+                    }
+                });
+        }
+
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("🦀 Vibe Rust Coder - AI Code Assistant");
             ui.separator();
@@ -257,7 +420,11 @@ impl eframe::App for VibeRustCoderApp {
                 .max_height(ui.available_height() - 150.0);
 
             scroll_area.show(ui, |ui| {
-                for msg in &self.chat_history {
+                let mut pending_copy: Option<String> = None;
+                let mut pending_process: Option<String> = None;
+                let mut pending_analyze: Option<String> = None;
+                
+                for (_msg_idx, msg) in self.chat_history.iter().enumerate() {
                     let (color, prefix) = match msg.role {
                         MessageRole::User => (Color32::LIGHT_BLUE, "👤 User"),
                         MessageRole::Assistant => (Color32::LIGHT_GREEN, "🤖 Assistant"),
@@ -272,13 +439,54 @@ impl eframe::App for VibeRustCoderApp {
 
                     ui.add_space(4.0);
                     
-                    // Make message content selectable
-                    ui.add(egui::TextEdit::multiline(&mut msg.content.as_str())
+                    // Make message content selectable with context menu
+                    let mut content_str = msg.content.clone();
+                    let text_edit = egui::TextEdit::multiline(&mut content_str)
                         .desired_width(f32::INFINITY)
-                        .interactive(false));
+                        .interactive(false);
+                    
+                    let response = ui.add(text_edit);
+                    
+                    // Right-click context menu
+                    response.context_menu(|ui| {
+                        if ui.button("📋 Copy to Clipboard").clicked() {
+                            pending_copy = Some(msg.content.clone());
+                            ui.close_menu();
+                        }
+                        
+                        if ui.button("🔧 Open in Process Window").clicked() {
+                            pending_process = Some(msg.content.clone());
+                            ui.close_menu();
+                        }
+                        
+                        ui.separator();
+                        
+                        if ui.button("📊 Quick Analyze").clicked() {
+                            pending_analyze = Some(msg.content.clone());
+                            ui.close_menu();
+                        }
+                    });
                     
                     ui.add_space(8.0);
                     ui.separator();
+                }
+                
+                // Execute pending actions after iteration
+                if let Some(text) = pending_copy {
+                    ui.output_mut(|o| o.copied_text = text.clone());
+                    self.add_message(MessageRole::System, "Message copied to clipboard".to_string());
+                }
+                if let Some(text) = pending_process {
+                    self.open_process_window(text);
+                }
+                if let Some(text) = pending_analyze {
+                    let analysis = format!(
+                        "Length: {} chars, {} lines, {} words",
+                        text.len(),
+                        text.lines().count(),
+                        text.split_whitespace().count()
+                    );
+                    self.add_message(MessageRole::System, analysis);
                 }
             });
 
@@ -310,7 +518,7 @@ impl eframe::App for VibeRustCoderApp {
             // Help text
             ui.add_space(5.0);
             ui.label(
-                RichText::new("💡 Tip: Use quick command buttons above, or type commands. Search results are clickable!")
+                RichText::new("💡 Tip: Right-click messages for options. Use quick buttons or type commands. Search results are clickable!")
                     .small()
                     .color(Color32::GRAY),
             );

@@ -29,6 +29,28 @@ Vibe Rust Coder is a GUI application that bridges the gap between AI coding assi
 - Scrollable chat history
 - Timestamps on all messages
 - Easy copy-paste workflow
+- **NEW**: Selectable message content
+
+### 🎮 **Quick Command Buttons** (NEW!)
+- **📋 List Files** - Instant file listing
+- **🔨 Build** - One-click build
+- **▶️ Run** - Quick run
+- **🧪 Test** - Fast testing
+- **⚡ Profile** - Release build
+- **❓ Help** - Instant help
+
+### 🔍 **Interactive Search Results** (NEW!)
+- **Clickable file paths** - Click to view files
+- **📋 Copy button** - Copy code to clipboard
+- **📁 Copy Path button** - Copy file paths
+- **Collapsible panel** - Clean interface
+- **Line numbers** - Navigate to exact locations
+
+### 📋 **Clipboard Integration** (NEW!)
+- One-click copy for search results
+- Copy file paths instantly
+- System clipboard support
+- Confirmation messages
 
 ### 🛠️ **Integrated Build Tools**
 - `build` - Run cargo build
@@ -70,11 +92,13 @@ list files
 | Document | Description |
 |----------|-------------|
 | **[README.md](README.md)** | Full feature documentation and user guide |
+| **[NEW_FEATURES.md](NEW_FEATURES.md)** | ⭐ What's new in v0.2.0 |
 | **[QUICKSTART.md](QUICKSTART.md)** | Quick start guide with troubleshooting |
 | **[EXAMPLES.md](EXAMPLES.md)** | Detailed usage examples and patterns |
 | **[AI_WORKFLOW.md](AI_WORKFLOW.md)** | Complete AI collaboration workflow |
 | **[ARCHITECTURE.md](ARCHITECTURE.md)** | System architecture and design |
 | **[PROJECT_SUMMARY.md](PROJECT_SUMMARY.md)** | Complete project overview |
+| **[LICENSE](LICENSE)** | MIT License |
 
 ## 🎮 Command Reference
 

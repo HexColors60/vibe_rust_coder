@@ -18,6 +18,13 @@ pub enum MessageRole {
     Error,
 }
 
+#[derive(serde::Deserialize, serde::Serialize)]
+pub struct SearchResult {
+    pub file_path: String,
+    pub line_number: Option<usize>,
+    pub content: String,
+}
+
 pub struct VibeRustCoderApp {
     project: Option<Project>,
     project_path: String,
@@ -25,6 +32,8 @@ pub struct VibeRustCoderApp {
     chat_history: Vec<ChatMessage>,
     command_executor: CommandExecutor,
     auto_scroll: bool,
+    search_results: Vec<SearchResult>,
+    last_command: String,
 }
 
 impl Default for VibeRustCoderApp {
@@ -36,6 +45,8 @@ impl Default for VibeRustCoderApp {
             chat_history: Vec::new(),
             command_executor: CommandExecutor::new(),
             auto_scroll: true,
+            search_results: Vec::new(),
+            last_command: String::new(),
         }
     }
 }
@@ -56,12 +67,20 @@ impl VibeRustCoderApp {
 
     fn execute_command(&mut self, command_text: &str) {
         self.add_message(MessageRole::User, command_text.to_string());
+        self.last_command = command_text.to_string();
 
         match Command::parse(command_text) {
             Ok(command) => {
+                // Check if it's a search command to parse results
+                let is_search = matches!(command, Command::Search { .. });
+                
                 let result = self.command_executor.execute(command, &mut self.project);
                 match result {
                     Ok(output) => {
+                        // Parse search results if it was a search command
+                        if is_search {
+                            self.parse_search_results(&output);
+                        }
                         self.add_message(MessageRole::Assistant, output);
                     }
                     Err(e) => {
@@ -71,6 +90,36 @@ impl VibeRustCoderApp {
             }
             Err(e) => {
                 self.add_message(MessageRole::Error, format!("Parse error: {}", e));
+            }
+        }
+    }
+
+    fn parse_search_results(&mut self, output: &str) {
+        self.search_results.clear();
+        
+        for line in output.lines() {
+            if line.starts_with("File: ") {
+                let file_path = line[6..].to_string();
+                self.search_results.push(SearchResult {
+                    file_path: file_path.clone(),
+                    line_number: None,
+                    content: file_path,
+                });
+            } else if line.find(':').is_some() {
+                if let Some(dash_pos) = line.find(" - ") {
+                    let file_and_line = &line[..dash_pos];
+                    if let Some(colon_pos) = file_and_line.rfind(':') {
+                        let file_path = file_and_line[..colon_pos].trim().to_string();
+                        let line_num = file_and_line[colon_pos + 1..].trim().parse::<usize>().ok();
+                        let content = line[dash_pos + 3..].to_string();
+                        
+                        self.search_results.push(SearchResult {
+                            file_path,
+                            line_number: line_num,
+                            content,
+                        });
+                    }
+                }
             }
         }
     }
@@ -112,12 +161,100 @@ impl eframe::App for VibeRustCoderApp {
 
             ui.separator();
 
+            // Quick command buttons
+            ui.horizontal(|ui| {
+                ui.label("Quick Commands:");
+                
+                if ui.button("📋 List Files").clicked() {
+                    self.execute_command("list files");
+                }
+                
+                if ui.button("🔨 Build").clicked() {
+                    self.execute_command("build");
+                }
+                
+                if ui.button("▶️ Run").clicked() {
+                    self.execute_command("run");
+                }
+                
+                if ui.button("🧪 Test").clicked() {
+                    self.execute_command("test");
+                }
+                
+                if ui.button("⚡ Profile").clicked() {
+                    self.execute_command("profile");
+                }
+                
+                if ui.button("❓ Help").clicked() {
+                    self.execute_command("help");
+                }
+            });
+
+            ui.separator();
+
+            // Search results panel (if any)
+            if !self.search_results.is_empty() {
+                ui.collapsing("🔍 Search Results (Click to interact)", |ui| {
+                    ScrollArea::vertical()
+                        .max_height(150.0)
+                        .show(ui, |ui| {
+                            let mut pending_command: Option<String> = None;
+                            let mut pending_copy: Option<String> = None;
+                            let mut pending_copy_path: Option<String> = None;
+                            
+                            for (idx, result) in self.search_results.iter().enumerate() {
+                                ui.horizontal(|ui| {
+                                    ui.label(format!("{}.", idx + 1));
+                                    
+                                    // File path button
+                                    if ui.button(&result.file_path).clicked() {
+                                        pending_command = Some(format!("show {}", result.file_path));
+                                    }
+                                    
+                                    if let Some(line_num) = result.line_number {
+                                        ui.label(format!(":{}", line_num));
+                                    }
+                                    
+                                    // Copy button
+                                    if ui.button("📋 Copy").clicked() {
+                                        pending_copy = Some(result.content.clone());
+                                    }
+                                    
+                                    // Copy path button
+                                    if ui.button("📁 Copy Path").clicked() {
+                                        pending_copy_path = Some(result.file_path.clone());
+                                    }
+                                });
+                                
+                                ui.label(RichText::new(&result.content).small().color(Color32::GRAY));
+                                ui.add_space(4.0);
+                            }
+                            
+                            // Execute pending actions after iteration
+                            if let Some(cmd) = pending_command {
+                                self.execute_command(&cmd);
+                            }
+                            if let Some(text) = pending_copy {
+                                ui.output_mut(|o| o.copied_text = text.clone());
+                                self.add_message(MessageRole::System, 
+                                    format!("Copied to clipboard: {}", text));
+                            }
+                            if let Some(path) = pending_copy_path {
+                                ui.output_mut(|o| o.copied_text = path.clone());
+                                self.add_message(MessageRole::System, 
+                                    format!("Copied path: {}", path));
+                            }
+                        });
+                });
+                ui.separator();
+            }
+
             // Chat history display
             ui.label("Chat History:");
             let scroll_area = ScrollArea::vertical()
                 .auto_shrink([false; 2])
                 .stick_to_bottom(self.auto_scroll)
-                .max_height(ui.available_height() - 100.0);
+                .max_height(ui.available_height() - 150.0);
 
             scroll_area.show(ui, |ui| {
                 for msg in &self.chat_history {
@@ -134,7 +271,12 @@ impl eframe::App for VibeRustCoderApp {
                     });
 
                     ui.add_space(4.0);
-                    ui.label(&msg.content);
+                    
+                    // Make message content selectable
+                    ui.add(egui::TextEdit::multiline(&mut msg.content.as_str())
+                        .desired_width(f32::INFINITY)
+                        .interactive(false));
+                    
                     ui.add_space(8.0);
                     ui.separator();
                 }
@@ -168,7 +310,7 @@ impl eframe::App for VibeRustCoderApp {
             // Help text
             ui.add_space(5.0);
             ui.label(
-                RichText::new("Commands: search <file>, add into <file>, build, run, test, profile, list files, show <file>")
+                RichText::new("💡 Tip: Use quick command buttons above, or type commands. Search results are clickable!")
                     .small()
                     .color(Color32::GRAY),
             );

@@ -421,6 +421,7 @@ impl eframe::App for VibeRustCoderApp {
 
             scroll_area.show(ui, |ui| {
                 let mut pending_copy: Option<String> = None;
+                let mut pending_copy_selection: Option<String> = None;
                 let mut pending_process: Option<String> = None;
                 let mut pending_analyze: Option<String> = None;
                 
@@ -446,9 +447,36 @@ impl eframe::App for VibeRustCoderApp {
                     
                     let response = ui.add(text_edit);
                     
+                    // Get selected text if any
+                    let selected_text = if let Some(state) = egui::TextEdit::load_state(ui.ctx(), response.id) {
+                        let cursor_range = state.cursor.char_range();
+                        if let Some(range) = cursor_range {
+                            let start = range.primary.index.min(range.secondary.index);
+                            let end = range.primary.index.max(range.secondary.index);
+                            if start != end {
+                                Some(msg.content.chars().skip(start).take(end - start).collect::<String>())
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    };
+                    
                     // Right-click context menu
                     response.context_menu(|ui| {
-                        if ui.button("📋 Copy to Clipboard").clicked() {
+                        // Show "Copy Selection" if there's selected text
+                        if let Some(ref sel_text) = selected_text {
+                            if ui.button(format!("📋 Copy Selection ({} chars)", sel_text.len())).clicked() {
+                                pending_copy_selection = Some(sel_text.clone());
+                                ui.close_menu();
+                            }
+                            ui.separator();
+                        }
+                        
+                        if ui.button("📋 Copy All").clicked() {
                             pending_copy = Some(msg.content.clone());
                             ui.close_menu();
                         }
@@ -471,6 +499,11 @@ impl eframe::App for VibeRustCoderApp {
                 }
                 
                 // Execute pending actions after iteration
+                if let Some(text) = pending_copy_selection {
+                    ui.output_mut(|o| o.copied_text = text.clone());
+                    self.add_message(MessageRole::System, 
+                        format!("Selection copied to clipboard ({} chars)", text.len()));
+                }
                 if let Some(text) = pending_copy {
                     ui.output_mut(|o| o.copied_text = text.clone());
                     self.add_message(MessageRole::System, "Message copied to clipboard".to_string());
@@ -517,7 +550,7 @@ impl eframe::App for VibeRustCoderApp {
             // Help text
             ui.add_space(5.0);
             ui.label(
-                RichText::new("💡 Tip: Chat is editable! Select text with mouse and Ctrl+C to copy. Right-click for more options.")
+                RichText::new("💡 Tip: Select text and right-click for 'Copy Selection'. Or use Ctrl+C. Right-click for more options.")
                     .small()
                     .color(Color32::GRAY),
             );

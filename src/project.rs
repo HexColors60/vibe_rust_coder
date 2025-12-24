@@ -2,6 +2,7 @@ use anyhow::{anyhow, Result};
 use ignore::WalkBuilder;
 use std::fs;
 use std::path::{Path, PathBuf};
+use crate::patch::CodeInserter;
 
 pub struct Project {
     pub root_path: PathBuf,
@@ -82,19 +83,53 @@ impl Project {
             fs::create_dir_all(parent)?;
         }
 
-        // Append or create file
+        // Use CodeInserter for intelligent code insertion
+        let inserter = CodeInserter::new();
         let mut existing_content = String::new();
-        if full_path.exists() {
+        let file_existed = full_path.exists();
+
+        if file_existed {
             existing_content = fs::read_to_string(&full_path)?;
-            existing_content.push_str("\n\n");
         }
 
-        existing_content.push_str(code);
-        fs::write(&full_path, existing_content)?;
+        let new_content = inserter.insert_code(&existing_content, code)?;
+        fs::write(&full_path, new_content)?;
+
+        // If this is a new module file, try to add module declaration to main.rs or lib.rs
+        if !file_existed && file_path.starts_with("src/") && file_path.ends_with(".rs") {
+            self.add_module_declaration(file_path)?;
+        }
 
         // Rescan files
         self.scan_rust_files()?;
 
+        Ok(())
+    }
+
+    fn add_module_declaration(&mut self, file_path: &str) -> Result<()> {
+        // Extract module name from file path
+        if let Some(module_name) = file_path
+            .strip_prefix("src/")
+            .and_then(|s| s.strip_suffix(".rs"))
+            .and_then(|s| s.split('/').last())
+        {
+            // Try to add to main.rs first, then lib.rs
+            for root_file in ["src/main.rs", "src/lib.rs"] {
+                let root_path = self.root_path.join(root_file);
+                if root_path.exists() {
+                    let content = fs::read_to_string(&root_path)?;
+
+                    // Check if module is already declared
+                    if !content.contains(&format!("mod {};", module_name)) {
+                        let inserter = CodeInserter::new();
+                        let module_decl = format!("mod {};", module_name);
+                        let updated_content = inserter.insert_code(&content, &module_decl)?;
+                        fs::write(&root_path, updated_content)?;
+                    }
+                    break;
+                }
+            }
+        }
         Ok(())
     }
 

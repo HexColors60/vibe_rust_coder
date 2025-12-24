@@ -1,6 +1,7 @@
 mod app;
 mod command;
 mod parser;
+mod patch;
 mod project;
 
 use anyhow::Result;
